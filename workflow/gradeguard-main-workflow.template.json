@@ -1,0 +1,806 @@
+{
+  "name": "AI-Powered Assignment Auto-Feedback System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "essay-submission",
+        "options": {}
+      },
+      "id": "21bb0bd8-7b37-4af8-ace4-a0678a17b1f8",
+      "name": "Webhook - Essay Submission",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "student_id",
+              "value": "={{ $json.body?.student_id || $json.student_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "student_name",
+              "value": "={{ $json.body?.student_name || $json.student_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "student_email",
+              "value": "={{ ($json.body?.student_email || $json.student_email || '').toLowerCase().trim() }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "course_code",
+              "value": "={{ $json.body?.course_code || $json.course_code }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "assignment_id",
+              "value": "={{ $json.body?.assignment_id || $json.assignment_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "essay_text",
+              "value": "={{ $json.body?.essay_text || $json.essay_text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "submitted_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5a3ed0bf-5aca-4a1b-a1f1-b93d474c32d7",
+      "name": "Normalize Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -272,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.student_email }}",
+              "rightValue": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ ($json.essay_text || '').length }}",
+              "rightValue": 50,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "c3",
+              "leftValue": "={{ $json.student_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c4",
+              "leftValue": "={{ $json.assignment_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c27499db-67d6-49de-80ec-50f446601f80",
+      "name": "Validate Submission",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.student_email }}",
+        "subject": "Your submission needs attention - {{ $json.assignment_id }}",
+        "message": "=<p>Hi {{ $json.student_name || 'there' }},</p>\n<p>We received your submission for <strong>{{ $json.assignment_id }}</strong> but could not process it because one or more required fields were missing or invalid.</p>\n<p>Please check that your essay is at least 50 characters long and that all form fields are complete, then resubmit.</p>\n<p>— Automated Grading System</p>",
+        "options": {}
+      },
+      "id": "91d3416e-a020-4e95-b64e-80015df7acec",
+      "name": "Send Rejection Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        544,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Rejected",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.submitted_at }}",
+            "student_id": "={{ $json.student_id }}",
+            "student_email": "={{ $json.student_email }}",
+            "assignment_id": "={{ $json.assignment_id }}",
+            "reason": "Failed validation (missing fields, invalid email, or essay too short)"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "student_id",
+              "displayName": "student_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "student_email",
+              "displayName": "student_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "assignment_id",
+              "displayName": "assignment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "2fae5b8f-6687-4841-869e-11b67679f643",
+      "name": "Log Rejected",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Rubrics",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "assignment_id",
+              "lookupValue": "={{ $json.assignment_id }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": true
+        }
+      },
+      "id": "cceaae08-c677-43d8-9df3-f9c51923e59c",
+      "name": "Fetch Rubric",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        544,
+        304
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "rf1",
+              "leftValue": "={{ $json.assignment_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "rf2",
+              "leftValue": "={{ $json.criterion_1 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d7bec0db-6671-4128-bdb3-7714f66fd645",
+      "name": "Rubric Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=⚠️ *Missing rubric*\n\nA submission came in for assignment `{{ $('Normalize Payload').item.json.assignment_id }}` but no matching rubric exists in the Rubrics sheet.\n\nStudent: {{ $('Normalize Payload').item.json.student_name }} ({{ $('Normalize Payload').item.json.student_id }})\n\nAdd the rubric row and ask the student to resubmit.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "f0f71616-f08e-4e04-9024-2bea69d82c8b",
+      "name": "Alert Missing Rubric",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1216,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----- Get input data -----\nconst data = $input.first().json;                       // Fetch Rubric output\nconst prev = $('Normalize Payload').first().json;       // Original submission\n\nconst text = (prev.essay_text || '').toString();\n\n// ----- Word tokenization -----\nconst cleaned = text.replace(/[,.!?;:()[\\]{}\"\"''—–\\-/\\\\@#$%^&*_+=<>|~`]/g, ' ');\nconst words = cleaned.split(/\\s+/).filter(w => w.length > 0);\nconst wordCount = words.length;\n\n// ----- Sentence counting -----\nconst sentences = text.replace(/[!?]/g, '.').split('.').filter(s => s.trim().length > 0);\nconst sentenceCount = Math.max(sentences.length, 1);\nconst avgWps = Math.round((wordCount / sentenceCount) * 10) / 10;\n\n// ----- Paragraphs -----\nconst paragraphs = text.split('\\n').filter(p => p.trim().length > 0);\n\n// ----- Vocabulary diversity -----\nconst uniqueWords = new Set(words.map(w => w.toLowerCase()));\nconst uniqueRatio = Math.round((uniqueWords.size / Math.max(wordCount, 1)) * 100) / 100;\n\n// ----- Syllable counting (count vowel groups) -----\nfunction countSyllables(word) {\n  word = word.toLowerCase();\n  let count = 0;\n  let prevVowel = false;\n  for (const ch of word) {\n    const isVowel = 'aeiouy'.includes(ch);\n    if (isVowel && !prevVowel) count++;\n    prevVowel = isVowel;\n  }\n  return Math.max(1, count);\n}\n\nconst totalSyllables = words.reduce((sum, w) => sum + countSyllables(w), 0);\n\n// ----- Flesch Reading Ease (higher = easier to read) -----\nconst flesch = Math.round(\n  (206.835 - 1.015 * avgWps - 84.6 * (totalSyllables / Math.max(wordCount, 1))) * 10\n) / 10;\n\n// ----- Length check against rubric -----\nconst minWords = parseInt(data.min_words) || 0;\nconst maxWords = parseInt(data.max_words) || 99999;\nconst meetsLength = wordCount >= minWords && wordCount <= maxWords;\n\n// ----- Build rubric text for the LLM -----\nconst rubricLines = [];\nfor (let i = 1; i <= 4; i++) {\n  const name = data['criterion_' + i];\n  const weight = data['weight_' + i];\n  if (name && weight) {\n    rubricLines.push(`- ${name} (out of ${weight} points)`);\n  }\n}\nconst rubricText = rubricLines.join('\\n');\n\n// ----- Output -----\nreturn [{\n  json: {\n    student_id: prev.student_id,\n    student_name: prev.student_name,\n    student_email: prev.student_email,\n    course_code: prev.course_code,\n    assignment_id: prev.assignment_id,\n    submitted_at: prev.submitted_at,\n    essay_text: text,\n    word_count: wordCount,\n    sentence_count: sentenceCount,\n    paragraph_count: paragraphs.length,\n    avg_words_per_sentence: avgWps,\n    unique_word_ratio: uniqueRatio,\n    flesch_reading_ease: flesch,\n    meets_length: meetsLength,\n    min_words: minWords,\n    max_words: maxWords,\n    rubric_text: rubricText,\n  }\n}];"
+      },
+      "id": "d798d553-56c6-4b4e-badf-87ceb83834e8",
+      "name": "Compute Metrics (JavaScript)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an experienced academic writing instructor providing constructive feedback to a student. Grade the essay below using the rubric. Be encouraging but honest.\n\nSTUDENT NAME: {{ $json.student_name }}\nCOURSE: {{ $json.course_code }}\nASSIGNMENT: {{ $json.assignment_id }}\n\nOBJECTIVE METRICS (from automated analysis):\n- Word count: {{ $json.word_count }} (required range met: {{ $json.meets_length }})\n- Flesch reading ease: {{ $json.flesch_reading_ease }}\n- Avg sentence length: {{ $json.avg_words_per_sentence }} words\n- Vocabulary diversity: {{ $json.unique_word_ratio }}\n\nRUBRIC (score each criterion out of its maximum points):\n{{ $json.rubric_text }}\n\nESSAY:\n\"\"\"\n{{ $json.essay_text }}\n\"\"\"\n\nINSTRUCTIONS:\n1. Score each rubric criterion out of its stated maximum.\n2. Sum into a total out of 100 and assign a letter grade (A: 90+, B: 80-89, C: 70-79, D: 60-69, F: below 60).\n3. Identify 2-3 specific strengths with brief evidence.\n4. Identify 2-3 specific, actionable improvement areas.\n5. Write a ~150-word personalized feedback message addressed to the student by name.\n\nReturn ONLY a valid JSON object matching this schema exactly (no markdown fences, no prose around it):\n{\n  \"scores\": {\"<criterion_name>\": <number>, ...},\n  \"total\": <sum 0-100>,\n  \"letter_grade\": \"<A|B|C|D|F>\",\n  \"strengths\": [\"<strength 1>\", \"<strength 2>\"],\n  \"improvements\": [\"<improvement 1>\", \"<improvement 2>\"],\n  \"personalized_feedback\": \"<~150 words addressed to the student by name>\"\n}"
+      },
+      "id": "22cc9e21-25d3-45c3-bb99-ce320a3a2bbd",
+      "name": "Grade Essay (LLM)",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        1504,
+        272
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "llama-3.3-70b-versatile",
+        "options": {
+          "maxTokensToSample": 1024,
+          "temperature": 0.3
+        }
+      },
+      "id": "d697c412-e4df-4446-8ca1-aec22795f300",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ----- Parse the LLM response safely -----\nconst llmResponse = $input.first().json.text || $input.first().json.output || '';\nconst metrics = $('Compute Metrics (Python)').first().json;\n\n// Strip markdown code fences if Groq wrapped the JSON\nlet cleaned = llmResponse.trim()\n  .replace(/^```(?:json)?\\s*/i, '')\n  .replace(/\\s*```$/, '');\n\nlet parsed = null;\nlet parseError = null;\n\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  // Fallback: extract first JSON object\n  const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    try {\n      parsed = JSON.parse(match[0]);\n    } catch (e2) {\n      parseError = 'JSON parse failed: ' + e2.message;\n    }\n  } else {\n    parseError = 'No JSON object found in response';\n  }\n}\n\nif (parsed && typeof parsed.total !== 'undefined') {\n  const scoresText = Object.entries(parsed.scores || {})\n    .map(([k, v]) => `  - ${k}: ${v}`)\n    .join('\\n');\n  const strengthsText = (parsed.strengths || [])\n    .map(s => `  • ${s}`).join('\\n');\n  const improvementsText = (parsed.improvements || [])\n    .map(s => `  • ${s}`).join('\\n');\n\n  return [{\n    json: {\n      grade_valid: true,\n      total: parsed.total,\n      letter_grade: parsed.letter_grade || '',\n      scores: parsed.scores || {},\n      scores_text: scoresText,\n      strengths: parsed.strengths || [],\n      strengths_text: strengthsText,\n      improvements: parsed.improvements || [],\n      improvements_text: improvementsText,\n      personalized_feedback: parsed.personalized_feedback || '',\n      // Pass through student info\n      student_id: metrics.student_id,\n      student_name: metrics.student_name,\n      student_email: metrics.student_email,\n      course_code: metrics.course_code,\n      assignment_id: metrics.assignment_id,\n      submitted_at: metrics.submitted_at,\n      word_count: metrics.word_count,\n      flesch_reading_ease: metrics.flesch_reading_ease,\n    }\n  }];\n}\n\n// Failure path — LLM output was unparseable\nreturn [{\n  json: {\n    grade_valid: false,\n    error: parseError || 'Invalid LLM response structure',\n    raw_response: llmResponse.substring(0, 500),\n    student_id: metrics.student_id,\n    student_name: metrics.student_name,\n    student_email: metrics.student_email,\n    assignment_id: metrics.assignment_id,\n  }\n}];\n"
+      },
+      "id": "5d0715d4-3c98-409e-acc9-7f032b9ea0a3",
+      "name": "Parse LLM Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "gv1",
+              "leftValue": "={{ $json.grade_valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1a0f1ca7-617c-45b7-9c41-65aa83ecbc8b",
+      "name": "Grade Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1936,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🛠 *Manual review needed*\n\nThe AI grader could not produce a valid response for:\n\nStudent: {{ $json.student_name }} ({{ $json.student_id }})\nAssignment: {{ $json.assignment_id }}\n\nError: `{{ $json.error }}`\n\nPlease grade this submission manually.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "3cd10750-5a6b-445e-8617-d0dfd06f41c6",
+      "name": "Manual Review Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2416,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Results"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.submitted_at }}",
+            "student_id": "={{ $json.student_id }}",
+            "student_name": "={{ $json.student_name }}",
+            "course_code": "={{ $json.course_code }}",
+            "assignment_id": "={{ $json.assignment_id }}",
+            "total": "={{ $json.total }}",
+            "letter_grade": "={{ $json.letter_grade }}",
+            "word_count": "={{ $json.word_count }}",
+            "flesch_score": "={{ $json.flesch_reading_ease }}",
+            "scores_breakdown": "={{ JSON.stringify($json.scores) }}",
+            "strengths": "={{ ($json.strengths || []).join(' | ') }}",
+            "improvements": "={{ ($json.improvements || []).join(' | ') }}",
+            "feedback": "={{ $json.personalized_feedback }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "student_id",
+              "displayName": "student_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "student_name",
+              "displayName": "student_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "course_code",
+              "displayName": "course_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "assignment_id",
+              "displayName": "assignment_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total",
+              "displayName": "total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "letter_grade",
+              "displayName": "letter_grade",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "word_count",
+              "displayName": "word_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "flesch_score",
+              "displayName": "flesch_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scores_breakdown",
+              "displayName": "scores_breakdown",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "strengths",
+              "displayName": "strengths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "improvements",
+              "displayName": "improvements",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "feedback",
+              "displayName": "feedback",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f6648c9f-99fa-41ce-9e8a-c4c449d7faf7",
+      "name": "Append to Results",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2544,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.student_email }}",
+        "subject": "=Your feedback for {{ $json.assignment_id }} — Grade: {{ $json.letter_grade }} ({{ $json.total }}/100)",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px;\">\n  <p>Hi {{ $json.student_name }},</p>\n  <p>Your essay for <strong>{{ $json.assignment_id }}</strong> ({{ $json.course_code }}) has been graded. Here's your detailed feedback:</p>\n\n  <h2 style=\"color:#2c3e50; border-bottom:2px solid #3498db; padding-bottom:4px;\">\n    Grade: {{ $json.total }}/100 ({{ $json.letter_grade }})\n  </h2>\n\n  <h3>Score breakdown</h3>\n  <pre style=\"background:#f8f9fa; padding:12px; border-radius:4px; white-space:pre-wrap;\">{{ $json.scores_text }}</pre>\n\n  <h3 style=\"color:#27ae60;\">✓ What you did well</h3>\n  <pre style=\"background:#f8f9fa; padding:12px; border-radius:4px; white-space:pre-wrap;\">{{ $json.strengths_text }}</pre>\n\n  <h3 style=\"color:#e67e22;\">→ Areas to improve</h3>\n  <pre style=\"background:#f8f9fa; padding:12px; border-radius:4px; white-space:pre-wrap;\">{{ $json.improvements_text }}</pre>\n\n  <h3>Personalized feedback</h3>\n  <p style=\"line-height:1.6;\">{{ $json.personalized_feedback }}</p>\n\n  <hr style=\"margin-top:24px; border:none; border-top:1px solid #ddd;\">\n  <p style=\"color:#888; font-size:12px;\">\n    Word count: {{ $json.word_count }} · Reading ease: {{ $json.flesch_reading_ease }}<br>\n    This feedback was generated by an automated system. Please reach out to your instructor for any questions.\n  </p>\n</div>",
+        "options": {}
+      },
+      "id": "90b33aef-df81-4378-9e38-c748c42284d9",
+      "name": "Email Feedback to Student",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2544,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=📝 *New essay graded*\n\n*Student:* {{ $json.student_name }} ({{ $json.student_id }})\n*Course:* {{ $json.course_code }}\n*Assignment:* {{ $json.assignment_id }}\n\n*Grade:* {{ $json.total }}/100 — {{ $json.letter_grade }}\n*Words:* {{ $json.word_count }}\n\nFull feedback saved to the Results sheet.",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "7a2db77d-77d7-4421-a9e3-efdc156aa81a",
+      "name": "Notify Teacher",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2544,
+        560
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Essay Submission": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "Validate Submission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Submission": {
+      "main": [
+        [
+          {
+            "node": "Fetch Rubric",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Rejection Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Rejection Email": {
+      "main": [
+        [
+          {
+            "node": "Log Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Rubric": {
+      "main": [
+        [
+          {
+            "node": "Rubric Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rubric Found?": {
+      "main": [
+        [
+          {
+            "node": "Compute Metrics (Python)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Alert Missing Rubric",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Metrics (Python)": {
+      "main": [
+        [
+          {
+            "node": "Grade Essay (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Grade Essay (LLM)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grade Essay (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Parse LLM Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse LLM Response": {
+      "main": [
+        [
+          {
+            "node": "Grade Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grade Valid?": {
+      "main": [
+        [
+          {
+            "node": "Append to Results",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Feedback to Student",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Teacher",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Manual Review Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": []
+}

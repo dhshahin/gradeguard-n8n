@@ -1,7 +1,5 @@
-# gradeguard-n8n
-AI-assisted first-pass essay grading and feedback workflow built with n8n, featuring rubric-based assessment, automated writing metrics, structured feedback, and instructor alerts.
-# GradeGuard n8n
 
+# GradeGuard n8n
 GradeGuard is an AI-assisted essay grading and feedback workflow built with n8n. It automates the first-pass assessment of written assignments using instructor-defined rubrics, objective writing metrics, and a large language model.
 
 The project is designed to reduce feedback delays while maintaining instructor oversight. The current version is a working prototype, and the next development phase will add confidence-based routing and structured human review.

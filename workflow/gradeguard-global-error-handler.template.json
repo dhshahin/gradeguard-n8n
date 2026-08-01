@@ -1,0 +1,234 @@
+{
+  "name": "Essay Grading - Global Error Handler",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "d5476471-7dbb-465b-892e-32d57f4859a2",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        80,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e1",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "e2",
+              "name": "workflow_name",
+              "value": "={{ $json.workflow?.name || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "e3",
+              "name": "execution_id",
+              "value": "={{ $json.execution?.id || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "e4",
+              "name": "failed_node",
+              "value": "={{ $json.execution?.lastNodeExecuted || 'unknown' }}",
+              "type": "string"
+            },
+            {
+              "id": "e5",
+              "name": "error_message",
+              "value": "={{ $json.execution?.error?.message || $json.error?.message || 'no message' }}",
+              "type": "string"
+            },
+            {
+              "id": "e6",
+              "name": "error_stack",
+              "value": "={{ ($json.execution?.error?.stack || '').substring(0, 500) }}",
+              "type": "string"
+            },
+            {
+              "id": "e7",
+              "name": "execution_url",
+              "value": "={{ $json.execution?.url || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "31aeec79-5b10-41fd-a6a4-608de7daf0b6",
+      "name": "Extract Error Details",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Errors",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "workflow_name": "={{ $json.workflow_name }}",
+            "execution_id": "={{ $json.execution_id }}",
+            "failed_node": "={{ $json.failed_node }}",
+            "error_message": "={{ $json.error_message }}",
+            "error_stack": "={{ $json.error_stack }}",
+            "execution_url": "={{ $json.execution_url }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "workflow_name",
+              "displayName": "workflow_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "failed_node",
+              "displayName": "failed_node",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_stack",
+              "displayName": "error_stack",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "execution_url",
+              "displayName": "execution_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "aa97dbc6-ba2d-4a72-b29b-0bffc14a6103",
+      "name": "Log to Errors Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        528,
+        240
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=⚠️ *Workflow failure*\n\n*Workflow:* `{{ $json.workflow_name }}`\n*Failed node:* `{{ $json.failed_node }}`\n*Error:* {{ $json.error_message }}\n\n*Execution ID:* `{{ $json.execution_id }}`\n\n[Open execution]({{ $json.execution_url }})",
+        "additionalFields": {
+          "disable_web_page_preview": true,
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "c7eee370-3374-4c8c-9c95-829fd9dbd2ce",
+      "name": "Alert Teacher on Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        528,
+        400
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Error Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Error Details": {
+      "main": [
+        [
+          {
+            "node": "Log to Errors Sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Alert Teacher on Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

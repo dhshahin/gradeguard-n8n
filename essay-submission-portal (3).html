@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Essay Submission Portal</title>
+
+<!-- ============================================================
+     CONFIGURATION — edit the line below with YOUR webhook URL
+     ------------------------------------------------------------
+     While testing:   use the /webhook-test/ URL and click
+                      "Listen for test event" in n8n before each
+                      submission.
+     When deployed:   activate your workflow in n8n and switch to
+                      the /webhook/ URL (no "-test").
+     ============================================================ -->
+<script>
+  const WEBHOOK_URL = "https://dhshaheen.app.n8n.cloud/webhook/essay-submission";
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..900,0..100&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --paper: #f5f1e8;
+    --paper-dark: #ebe4d3;
+    --ink: #1a1814;
+    --ink-soft: #5a5448;
+    --ink-faded: #8b8576;
+    --wine: #7a2e2e;
+    --wine-dark: #5a1f1f;
+    --gold: #a67c3e;
+    --rule: #c7bfa8;
+    --shadow: rgba(26, 24, 20, 0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Subtle paper grain */
+  body {
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(26, 24, 20, 0.04) 1px, transparent 0);
+    background-size: 32px 32px;
+    background-attachment: fixed;
+  }
+
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 56px 40px 80px;
+  }
+
+  /* ─────────── MASTHEAD ─────────── */
+  .masthead {
+    border-bottom: 3px double var(--ink);
+    padding-bottom: 32px;
+    margin-bottom: 48px;
+    position: relative;
+  }
+
+  .masthead-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  .masthead h1 {
+    font-family: 'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 300;
+    font-size: clamp(44px, 6vw, 64px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variation-settings: 'SOFT' 50;
+  }
+
+  .masthead h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--wine);
+  }
+
+  .masthead-sub {
+    margin-top: 18px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 19px;
+    color: var(--ink-soft);
+    max-width: 520px;
+  }
+
+  /* ─────────── FORM SECTIONS ─────────── */
+  .section {
+    margin-bottom: 48px;
+  }
+
+  .section-label {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .section-number {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 28px;
+    color: var(--wine);
+    min-width: 48px;
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+  }
+
+  .section-hint {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    margin-left: auto;
+  }
+
+  /* ─────────── FIELDS ─────────── */
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px 32px;
+  }
+
+  .field-full { grid-column: 1 / -1; }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+
+  .field input,
+  .field textarea,
+  .field select {
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--rule);
+    padding: 10px 2px;
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 16px;
+    color: var(--ink);
+    transition: border-color 0.2s ease;
+  }
+
+  .field input:focus,
+  .field textarea:focus {
+    outline: none;
+    border-bottom-color: var(--wine);
+  }
+
+  .field input::placeholder,
+  .field textarea::placeholder {
+    color: var(--ink-faded);
+    font-style: italic;
+  }
+
+  /* ─────────── ESSAY AREA ─────────── */
+  .essay-wrap {
+    background: #fdfaf1;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 28px 32px;
+    position: relative;
+    box-shadow: 0 1px 0 var(--paper-dark), 2px 2px 0 var(--paper-dark);
+  }
+
+  .essay-wrap::before {
+    content: '';
+    position: absolute;
+    left: 72px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(122, 46, 46, 0.12);
+  }
+
+  .essay-wrap textarea {
+    width: 100%;
+    min-height: 360px;
+    border: none;
+    background: transparent;
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 17px;
+    line-height: 1.8;
+    color: var(--ink);
+    resize: vertical;
+    padding-left: 52px;
+  }
+
+  .essay-wrap textarea:focus { outline: none; }
+
+  .essay-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding: 0 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .word-count.below { color: var(--wine); }
+  .word-count.within { color: #3d6b3d; }
+  .word-count.above { color: var(--gold); }
+
+  /* ─────────── ORNAMENTAL DIVIDER ─────────── */
+  .ornament {
+    text-align: center;
+    margin: 56px 0;
+    font-family: 'Fraunces', serif;
+    color: var(--ink-faded);
+    font-size: 14px;
+    letter-spacing: 1em;
+  }
+
+  /* ─────────── SUBMIT BUTTON ─────────── */
+  .submit-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 40px;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+  }
+
+  .submit-note {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-soft);
+    max-width: 340px;
+    line-height: 1.5;
+  }
+
+  button.submit {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 16px 32px;
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 1px;
+  }
+
+  button.submit:hover:not(:disabled) {
+    background: var(--wine);
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+  button.submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  button.submit .arrow {
+    display: inline-block;
+    transition: transform 0.2s ease;
+  }
+
+  button.submit:hover:not(:disabled) .arrow {
+    transform: translateX(4px);
+  }
+
+  /* ─────────── SUCCESS / ERROR SCREENS ─────────── */
+  .screen {
+    display: none;
+    text-align: center;
+    padding: 64px 20px;
+    animation: fadeIn 0.6s ease;
+  }
+
+  .screen.active { display: block; }
+
+  .screen-glyph {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 72px;
+    font-style: italic;
+    color: var(--wine);
+    line-height: 1;
+    margin-bottom: 24px;
+  }
+
+  .screen h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 36px;
+    letter-spacing: -0.02em;
+    margin-bottom: 16px;
+  }
+
+  .screen p {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 19px;
+    color: var(--ink-soft);
+    max-width: 480px;
+    margin: 0 auto 32px;
+    line-height: 1.6;
+  }
+
+  .screen .receipt {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    padding: 12px 20px;
+    border: 1px dashed var(--rule);
+    margin-bottom: 32px;
+  }
+
+  .screen button.restart {
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    padding: 12px 28px;
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .screen button.restart:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─────────── LOADING STATE ─────────── */
+  .loading {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--paper);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ─────────── FOOTER ─────────── */
+  footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faded);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* ─────────── RESPONSIVE ─────────── */
+  @media (max-width: 640px) {
+    .page { padding: 32px 20px 60px; }
+    .field-grid { grid-template-columns: 1fr; }
+    .essay-wrap { padding: 20px; }
+    .essay-wrap::before { display: none; }
+    .essay-wrap textarea { padding-left: 0; }
+    .submit-wrap { flex-direction: column; gap: 20px; align-items: stretch; }
+    .submit-note { text-align: center; }
+    button.submit { justify-content: center; }
+    footer { flex-direction: column; gap: 8px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ════════════ MASTHEAD ════════════ -->
+  <header class="masthead">
+    <div class="masthead-top">
+      <span>Vol. MMXXVI · № 01</span>
+      <span id="today-date"></span>
+    </div>
+    <h1>The Scholar's <em>Desk</em></h1>
+    <p class="masthead-sub">An automated portal for essay submission. Your work is reviewed instantly and feedback is returned to your inbox, drafted by an AI reader trained to grade against each assignment's rubric.</p>
+  </header>
+
+  <!-- ════════════ FORM ════════════ -->
+  <form id="submission-form" autocomplete="on">
+
+    <section class="section">
+      <div class="section-label">
+        <span class="section-number">I.</span>
+        <span class="section-title">Your particulars</span>
+        <span class="section-hint">All fields required</span>
+      </div>
+
+      <div class="field-grid">
+        <div class="field">
+          <label for="student_id">Student ID</label>
+          <input type="text" id="student_id" name="student_id" required placeholder="e.g. S12345">
+        </div>
+        <div class="field">
+          <label for="student_name">Full name</label>
+          <input type="text" id="student_name" name="student_name" required placeholder="e.g. Duaa Shaheen">
+        </div>
+        <div class="field field-full">
+          <label for="student_email">Email address</label>
+          <input type="email" id="student_email" name="student_email" required placeholder="your.name@university.edu">
+        </div>
+        <div class="field">
+          <label for="course_code">Course code</label>
+          <input type="text" id="course_code" name="course_code" required placeholder="e.g. ENG101">
+        </div>
+        <div class="field">
+          <label for="assignment_id">Assignment ID</label>
+          <input type="text" id="assignment_id" name="assignment_id" required placeholder="e.g. ENG101-A3">
+        </div>
+      </div>
+    </section>
+
+    <div class="ornament">◆ ◆ ◆</div>
+
+    <section class="section">
+      <div class="section-label">
+        <span class="section-number">II.</span>
+        <span class="section-title">Your essay</span>
+        <span class="section-hint">Paste or type below</span>
+      </div>
+
+      <div class="essay-wrap">
+        <textarea id="essay_text" name="essay_text" required minlength="50" placeholder="Begin writing here. The page is yours."></textarea>
+      </div>
+
+      <div class="essay-meta">
+        <span id="reading-time">— min read</span>
+        <span class="word-count" id="word-count">0 words</span>
+      </div>
+    </section>
+
+    <div class="submit-wrap">
+      <p class="submit-note">Once submitted, your essay is analysed, graded against the rubric, and a detailed feedback note is dispatched to your email.</p>
+      <button type="submit" class="submit" id="submit-btn">
+        <span id="submit-text">Submit for grading</span>
+        <span class="arrow" id="submit-arrow">→</span>
+      </button>
+    </div>
+  </form>
+
+  <!-- ════════════ SUCCESS SCREEN ════════════ -->
+  <div class="screen" id="success-screen">
+    <div class="screen-glyph">✓</div>
+    <h2>Received with thanks.</h2>
+    <p>Your essay is being read. Expect a detailed feedback note at the email you provided within a few moments.</p>
+    <div class="receipt" id="receipt">Submission № —</div>
+    <div>
+      <button class="restart" id="restart-btn">Submit another essay</button>
+    </div>
+  </div>
+
+  <!-- ════════════ ERROR SCREEN ════════════ -->
+  <div class="screen" id="error-screen">
+    <div class="screen-glyph" style="color: var(--wine-dark);">!</div>
+    <h2>Something went awry.</h2>
+    <p id="error-message">Your submission could not reach our desk. Please check your connection and try again.</p>
+    <div>
+      <button class="restart" id="retry-btn">Return to the form</button>
+    </div>
+  </div>
+
+  <!-- ════════════ FOOTER ════════════ -->
+  <footer>
+    <span>Automated review · AI-assisted</span>
+    <span>Confidential academic submission</span>
+  </footer>
+
+</div>
+
+<script>
+  // ──────────── Date stamp ────────────
+  const dateEl = document.getElementById('today-date');
+  const now = new Date();
+  dateEl.textContent = now.toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  }).toUpperCase();
+
+  // ──────────── Live word count ────────────
+  const essayEl = document.getElementById('essay_text');
+  const countEl = document.getElementById('word-count');
+  const readEl = document.getElementById('reading-time');
+
+  function countWords(text) {
+    const trimmed = text.trim();
+    if (!trimmed) return 0;
+    return trimmed.split(/\s+/).length;
+  }
+
+  function updateCounter() {
+    const n = countWords(essayEl.value);
+    countEl.textContent = n === 1 ? '1 word' : n.toLocaleString() + ' words';
+    countEl.classList.remove('below', 'within', 'above');
+    if (n === 0) {
+      // neutral
+    } else if (n < 500) {
+      countEl.classList.add('below');
+    } else if (n <= 1500) {
+      countEl.classList.add('within');
+    } else {
+      countEl.classList.add('above');
+    }
+    const minutes = Math.max(1, Math.round(n / 200));
+    readEl.textContent = n === 0 ? '— min read' : minutes + ' min read';
+  }
+
+  essayEl.addEventListener('input', updateCounter);
+  updateCounter();
+
+  // ──────────── Form submission ────────────
+  const form = document.getElementById('submission-form');
+  const successScreen = document.getElementById('success-screen');
+  const errorScreen = document.getElementById('error-screen');
+  const errorMsg = document.getElementById('error-message');
+  const submitBtn = document.getElementById('submit-btn');
+  const submitText = document.getElementById('submit-text');
+  const submitArrow = document.getElementById('submit-arrow');
+  const receiptEl = document.getElementById('receipt');
+
+  function showScreen(screen) {
+    form.style.display = 'none';
+    successScreen.classList.remove('active');
+    errorScreen.classList.remove('active');
+    if (screen) screen.classList.add('active');
+  }
+
+  function showForm() {
+    form.style.display = 'block';
+    successScreen.classList.remove('active');
+    errorScreen.classList.remove('active');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Gather payload
+    const payload = {
+      student_id: document.getElementById('student_id').value.trim(),
+      student_name: document.getElementById('student_name').value.trim(),
+      student_email: document.getElementById('student_email').value.trim(),
+      course_code: document.getElementById('course_code').value.trim(),
+      assignment_id: document.getElementById('assignment_id').value.trim(),
+      essay_text: essayEl.value.trim(),
+    };
+
+    // Loading state
+    submitBtn.disabled = true;
+    submitText.textContent = 'Sending';
+    submitArrow.innerHTML = '<span class="loading"></span>';
+
+    try {
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Server returned status ' + response.status);
+      }
+
+      // Generate a simple receipt number from timestamp + initials
+      const initials = (payload.student_name.match(/\b\w/g) || []).join('').toUpperCase().slice(0, 3);
+      const stamp = Date.now().toString(36).slice(-6).toUpperCase();
+      receiptEl.textContent = 'Submission № ' + initials + '-' + stamp;
+
+      showScreen(successScreen);
+    } catch (err) {
+      errorMsg.textContent = 'Your submission could not reach our desk. ' +
+        '(' + err.message + ') Please check your connection and try again.';
+      showScreen(errorScreen);
+    } finally {
+      submitBtn.disabled = false;
+      submitText.textContent = 'Submit for grading';
+      submitArrow.textContent = '→';
+    }
+  });
+
+  // ──────────── Restart / retry buttons ────────────
+  document.getElementById('restart-btn').addEventListener('click', () => {
+    form.reset();
+    updateCounter();
+    showForm();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  document.getElementById('retry-btn').addEventListener('click', () => {
+    showForm();
+  });
+</script>
+
+</body>
+</html>
